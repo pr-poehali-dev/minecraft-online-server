@@ -44,10 +44,17 @@ const faqItems = [
   { q: "Есть ли мобильная версия?", a: "Сервер работает только с Java Edition. Bedrock/PE не поддерживается." },
 ];
 
+const MC_STATUS_URL = "https://functions.poehali.dev/4360cd53-29d9-4482-a3c3-856bfd035f46";
+const MC_PLUGIN_URL = "https://functions.poehali.dev/5cea14d7-18cf-44b7-9257-447beb666f20";
+
 export default function Index() {
   const [activeSection, setActiveSection] = useState("home");
   const [onlinePlayers, setOnlinePlayers] = useState(0);
-  const [maxPlayers] = useState(500);
+  const [maxPlayers, setMaxPlayers] = useState(500);
+  const [serverOnline, setServerOnline] = useState<boolean | null>(null);
+  const [serverLatency, setServerLatency] = useState(0);
+  const [serverVersion, setServerVersion] = useState("1.20.1");
+  const [pluginDownloading, setPluginDownloading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
@@ -57,17 +64,40 @@ export default function Index() {
   const [contactForm, setContactForm] = useState({ name: "", email: "", message: "" });
   const [formSent, setFormSent] = useState(false);
 
+  const fetchServerStatus = async () => {
+    try {
+      const res = await fetch(MC_STATUS_URL);
+      const data = await res.json();
+      setServerOnline(data.online);
+      setOnlinePlayers(data.players ?? 0);
+      setMaxPlayers(data.max_players ?? 500);
+      setServerLatency(data.latency ?? 0);
+      setServerVersion(data.version ?? "1.20.1");
+    } catch {
+      setServerOnline(false);
+    }
+  };
+
+  const downloadPlugin = async () => {
+    setPluginDownloading(true);
+    try {
+      const res = await fetch(MC_PLUGIN_URL);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "LastCraftOnline-1.0.0.zip";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("Ошибка скачивания. Попробуйте позже.");
+    }
+    setPluginDownloading(false);
+  };
+
   useEffect(() => {
-    let count = 0;
-    const interval = setInterval(() => {
-      count += Math.floor(Math.random() * 15) + 5;
-      if (count >= 247) {
-        setOnlinePlayers(247);
-        clearInterval(interval);
-      } else {
-        setOnlinePlayers(count);
-      }
-    }, 50);
+    fetchServerStatus();
+    const interval = setInterval(fetchServerStatus, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -127,9 +157,11 @@ export default function Index() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded border" style={{ borderColor: "rgba(57,255,20,0.4)", backgroundColor: "rgba(57,255,20,0.05)" }}>
-              <div className="w-2 h-2 rounded-full status-online" style={{ backgroundColor: "var(--neon-green)" }} />
-              <span className="font-mono-tech text-xs" style={{ color: "var(--neon-green)" }}>{onlinePlayers}/{maxPlayers}</span>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded border" style={{ borderColor: serverOnline === false ? "rgba(255,50,50,0.4)" : "rgba(57,255,20,0.4)", backgroundColor: serverOnline === false ? "rgba(255,50,50,0.05)" : "rgba(57,255,20,0.05)" }}>
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: serverOnline === false ? "#ff3232" : "var(--neon-green)", ...(serverOnline !== false && { animation: "pulse-online 2s infinite", boxShadow: "0 0 6px var(--neon-green)" }) }} />
+              <span className="font-mono-tech text-xs" style={{ color: serverOnline === false ? "#ff5555" : "var(--neon-green)" }}>
+                {serverOnline === null ? "..." : serverOnline ? `${onlinePlayers}/${maxPlayers}` : "OFFLINE"}
+              </span>
             </div>
             <button onClick={() => setAdminOpen(true)} className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded neon-btn-purple font-rajdhani font-semibold text-sm">
               <Icon name="Shield" size={14} />
@@ -178,9 +210,9 @@ export default function Index() {
         ))}
 
         <div className="relative z-10 text-center max-w-5xl mx-auto px-4 animate-fade-in">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border mb-6 font-mono-tech text-xs tracking-widest" style={{ borderColor: "rgba(0,255,255,0.4)", backgroundColor: "rgba(0,255,255,0.05)", color: "var(--neon-cyan)" }}>
-            <div className="w-1.5 h-1.5 rounded-full status-online" style={{ backgroundColor: "var(--neon-green)" }} />
-            СЕРВЕР ОНЛАЙН · {onlinePlayers} ИГРОКОВ
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border mb-6 font-mono-tech text-xs tracking-widest" style={{ borderColor: serverOnline === false ? "rgba(255,50,50,0.4)" : "rgba(0,255,255,0.4)", backgroundColor: serverOnline === false ? "rgba(255,50,50,0.05)" : "rgba(0,255,255,0.05)", color: serverOnline === false ? "#ff5555" : "var(--neon-cyan)" }}>
+            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: serverOnline === false ? "#ff3232" : "var(--neon-green)", ...(serverOnline !== false && { animation: "pulse-online 2s infinite" }) }} />
+            {serverOnline === null ? "ПОДКЛЮЧЕНИЕ..." : serverOnline ? `СЕРВЕР ОНЛАЙН · ${onlinePlayers} ИГРОКОВ` : "СЕРВЕР ОФФЛАЙН"}
           </div>
 
           <h1 className="font-orbitron font-black text-5xl sm:text-7xl md:text-8xl mb-4 leading-none glitch-text" data-text="LASTCRAFT" style={{ color: "var(--neon-cyan)", textShadow: "0 0 20px var(--neon-cyan), 0 0 60px rgba(0,255,255,0.5)" }}>
@@ -234,14 +266,18 @@ export default function Index() {
           <div className="text-center mb-14">
             <p className="font-mono-tech text-xs tracking-widest mb-2" style={{ color: "var(--neon-cyan)" }}>// SYSTEM STATUS</p>
             <h2 className="font-orbitron font-bold text-3xl sm:text-4xl neon-text-cyan">СТАТУС СЕРВЕРА</h2>
+            <button onClick={fetchServerStatus} className="mt-4 inline-flex items-center gap-2 px-4 py-1.5 rounded border font-mono-tech text-xs tracking-widest transition-all hover:bg-cyan-900/10" style={{ borderColor: "rgba(0,255,255,0.3)", color: "var(--neon-cyan)" }}>
+              <Icon name="RefreshCw" size={12} />
+              ОБНОВИТЬ
+            </button>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
             {[
-              { label: "ОНЛАЙН", value: `${onlinePlayers}`, sub: `/ ${maxPlayers} слотов`, icon: "Users", color: "cyan" },
-              { label: "АПТАЙМ", value: "99.8%", sub: "за 30 дней", icon: "Activity", color: "green" },
-              { label: "ПИНГ", value: "12ms", sub: "средний", icon: "Wifi", color: "purple" },
-              { label: "ВЕРСИЯ", value: "1.20.4", sub: "Java Edition", icon: "Cpu", color: "pink" },
+              { label: "ОНЛАЙН", value: serverOnline === null ? "..." : `${onlinePlayers}`, sub: `/ ${maxPlayers} слотов`, icon: "Users", color: "cyan" },
+              { label: "СТАТУС", value: serverOnline === null ? "..." : serverOnline ? "ONLINE" : "OFFLINE", sub: serverOnline ? "сервер работает" : "недоступен", icon: "Activity", color: serverOnline === false ? "pink" : "green" },
+              { label: "ПИНГ", value: serverOnline ? `${serverLatency}ms` : "—", sub: "до сервера", icon: "Wifi", color: "purple" },
+              { label: "ВЕРСИЯ", value: serverVersion.replace("Purpur ", "").replace("Paper ", ""), sub: "Java Edition", icon: "Cpu", color: "pink" },
             ].map(stat => (
               <div key={stat.label} className="cyber-card rounded p-5 text-center hover-scale relative">
                 <div className={`inline-flex items-center justify-center w-10 h-10 rounded mb-3 ${stat.color === "cyan" ? "bg-cyan-900/30" : stat.color === "green" ? "bg-green-900/30" : stat.color === "purple" ? "bg-purple-900/30" : "bg-pink-900/30"}`}>
@@ -559,6 +595,30 @@ export default function Index() {
                     <Icon name="ChevronRight" size={14} className="text-gray-600 ml-auto" />
                   </div>
                 ))}
+
+                <div className="pt-2 border-t" style={{ borderColor: "rgba(0,255,255,0.15)" }}>
+                  <p className="font-mono-tech text-xs text-gray-600 mb-3 tracking-widest">// ПЛАГИН ДЛЯ СЕРВЕРА</p>
+                  <button
+                    onClick={downloadPlugin}
+                    disabled={pluginDownloading}
+                    className="w-full flex items-center gap-3 p-3 rounded transition-all border"
+                    style={{ borderColor: "rgba(57,255,20,0.4)", backgroundColor: "rgba(57,255,20,0.05)", color: "var(--neon-green)" }}
+                  >
+                    <div className="w-9 h-9 rounded bg-green-900/30 flex items-center justify-center flex-shrink-0">
+                      <Icon name={pluginDownloading ? "Loader" : "Download"} size={16} className="text-green-400" />
+                    </div>
+                    <div className="text-left">
+                      <div className="font-rajdhani font-semibold text-white text-sm">Скачать плагин LastCraftOnline</div>
+                      <div className="font-mono-tech text-xs" style={{ color: "var(--neon-green)" }}>
+                        {pluginDownloading ? "Загрузка..." : "v1.0.0 · Bukkit/Spigot/Paper 1.20.1"}
+                      </div>
+                    </div>
+                    <Icon name="ChevronRight" size={14} className="text-gray-600 ml-auto" />
+                  </button>
+                  <p className="font-mono-tech text-xs text-gray-600 mt-2 px-1">
+                    Установи плагин на сервер → сайт получит реальный онлайн каждые 30 сек
+                  </p>
+                </div>
               </div>
             )}
           </div>

@@ -1,0 +1,11 @@
+{
+  "tests": [
+    {
+      "name": "Download plugin zip",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    }
+  ]
+}
